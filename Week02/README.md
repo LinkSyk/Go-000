@@ -10,7 +10,7 @@
 
 个人理解是当 dao 返回sql.ErrNoRows时，应该根据相应的场景来做选择，比如下面两种情况：
 
-1. 根据 id 查询商品列表，如果 sql 查返回的是 sql.ErrNoRows 时，不应该报错，应该自己吞下操作，然返回一个空的列表
+1. 根据 id 查询商品列表，如果 sql 查返回的是 sql.ErrNoRows 时，不应该报错，应该自己吞下错误，然返回一个空的列表
 
 ```go
 
@@ -71,9 +71,11 @@ type Service struct {
     dao *Dao
 }
 
+// 疑惑:
 // Service 层是否需要关心 具体的错误是什么吗？
 // 直接使用  if err := service.QueryUser(userID);  err !=nil {...} 来将错误当成 opaque error 处理吗？
 func (s *Service) QueryUser(userID int) (user *User, err error) {
+    // 直接返回错误
     return s.dao.QueryUser(userID)
 }
 
