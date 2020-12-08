@@ -18,7 +18,8 @@ import (
 // 基于 errgroup 实现一个 http server 的启动和关闭,
 // 以及 linux signal 信号的注册和处理，要保证能够一个退出，全部注销退出。
 
-// 需要使用 context 来做goroutine的生命周期的管控，使用chan来通知状态，使用信号来触发停止服务。
+// 需要使用 context 来做goroutine的生命周期的管控，使用chan来通知状态，使用信号来触发停止的发生。
+
 func startServer(addr string, ctx context.Context) error {
 	server := http.Server{
 		Addr:    addr,
@@ -27,7 +28,6 @@ func startServer(addr string, ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		logrus.Infoln("recv stop")
 		_ = server.Shutdown(context.Background())
 	}()
 
@@ -45,31 +45,31 @@ func main() {
 
 	// 处理信号的服务
 	g.Go(func() error {
-		<-sig
-		return errors.New("stop server")
+		// !!! 这里用select的原因是不仅需要处理 sig， 还需要处理 ctx。
+		// 因为可能后面的 server1 和 server2 启动失败, 此时 ctx.Done()会被触发, 为了不阻塞后面的 g.Wait()，这里必须处理。
+		select {
+		case <-sig:
+			return errors.New("stop server")
+		case <-ctx.Done():
+			return errors.New("start server error")
+		}
 	})
 
 	// 启动 server1
 	g.Go(func() error {
-		if err := startServer("0.0.0.0:8080", ctx); err != nil {
-			logrus.Infof("stop server1, %v", err)
-			return err
-		}
-		return nil
+		return startServer("0.0.0.0:8080", ctx)
 	})
 
 	// 启动 server2
 	g.Go(func() error {
-		if err := startServer("0.0.0.0:8081", ctx); err != nil {
-			logrus.Infof("stop server2, %v", err)
-			return err
-		}
-		return nil
+		return startServer("0.0.0.0:8081", ctx)
 	})
 
 	if err := g.Wait(); err != nil {
+		logrus.Errorf("err: %v", err)
 		return
 	}
 }
+
 
 ```

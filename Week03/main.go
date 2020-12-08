@@ -24,7 +24,6 @@ func startServer(addr string, ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		logrus.Infoln("recv stop")
 		_ = server.Shutdown(context.Background())
 	}()
 
@@ -42,29 +41,28 @@ func main() {
 
 	// 处理信号的服务
 	g.Go(func() error {
-		<-sig
-		return errors.New("stop server")
+		// !!! 这里用select的原因是不仅需要处理 sig， 还需要处理 ctx。
+		// 因为可能后面的 server1 和 server2 启动失败, 此时 ctx.Done()会被触发, 为了不阻塞后面的 g.Wait()，这里必须处理。
+		select {
+		case <-sig:
+			return errors.New("stop server")
+		case <-ctx.Done():
+			return errors.New("start server error")
+		}
 	})
 
 	// 启动 server1
 	g.Go(func() error {
-		if err := startServer("0.0.0.0:8080", ctx); err != nil {
-			logrus.Infof("stop server1, %v", err)
-			return err
-		}
-		return nil
+		return startServer("0.0.0.0:8080", ctx)
 	})
 
 	// 启动 server2
 	g.Go(func() error {
-		if err := startServer("0.0.0.0:8081", ctx); err != nil {
-			logrus.Infof("stop server2, %v", err)
-			return err
-		}
-		return nil
+		return startServer("0.0.0.0:8081", ctx)
 	})
 
 	if err := g.Wait(); err != nil {
+		logrus.Errorf("err: %v", err)
 		return
 	}
 }
