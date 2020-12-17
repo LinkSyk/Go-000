@@ -1,0 +1,34 @@
+syntax="proto3";
+
+package week04.account.v1;
+
+option go_package="git.syk.tv/week04/api/account/v1;account";
+
+message CreateUserReq {
+    string nickName = 1;
+    string gender = 2;
+    int32 age = 3;
+    string phone = 4;
+}
+
+message CreateUserResp {
+    int32 code = 1;
+    string msg = 2;
+}
+
+message DelUserReq {
+    int64 userID = 1;
+    string nickName = 2;
+    string bender = 3;
+    int32 age = 4;
+}
+
+message DelUserResp {
+    int32 code = 1;
+    string msg = 2;
+}
+
+service Account {
+    rpc CreateUser(CreateUserReq) returns(CreateUserResp) {}
+    rpc DelUser(DelUserReq) returns(DelUserResp) {}
+}
